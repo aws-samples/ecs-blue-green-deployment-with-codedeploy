@@ -1,0 +1,87 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This template deploys the monitoring topic for ecsfargate app
+Metadata:
+  version: 1.0.0
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+  pMonitoringEmailAddress:
+    Description: Provide Monitoring email address. Typically support group email
+    Type: String
+
+Resources:
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-SNS
+
+  #Create an AWS SNS(Simple Notification Service) Topic to which notifications/monitoring alerts can be published
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sns-topic.html
+  rSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub '${pApp}-monitoring'
+      TopicName: !Sub '${pApp}-monitoring'
+
+  #Subscribe an email address to the AWS topic we created above for monitoring alerts. Typically support group
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sns-subscription.html
+  rSNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref pMonitoringEmailAddress
+      Protocol: email
+      TopicArn: !Ref rSNSTopic
+
+  #Create a policy for the sns topic created above. Any AWS Service may execute the listed actions on our SNS Topic.
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sns-policy.html
+  rEventTopicPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    Properties:
+      PolicyDocument: !Sub |-
+        {
+          "Version": "2012-10-17",
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Sid": "__default_statement_ID",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish",
+                "SNS:Receive"
+              ],
+              "Resource": "${rSNSTopic}",
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "${AWS::AccountId}"
+                }
+              }
+            },
+            {
+              "Sid": "EcsFargateEventstoTopic",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "events.amazonaws.com"
+              },
+              "Action": "sns:Publish",
+              "Resource": "${rSNSTopic}"
+            }
+          ]
+        }
+      Topics:
+        - !Ref rSNSTopic
+
+Outputs:
+  oMonitoringTopicArn:
+    Description: Monitoring Topic Arn
+    Value: !Ref rSNSTopic

@@ -1,0 +1,30 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This template deploys The Elog group fro the application.
+Metadata:
+  version: 1.0.0
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+
+Resources:
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-CloudWatch
+
+  #Create the Log group for the ECS Fargate Service. A log group defines common properties for log streams, 
+  #such as their retention and access control rules. Each log stream must belong to one log group.
+  #Log retention period currently set to 7 days. Default is infinite.
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
+  rEcsServiceLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${pApp}/ecs'
+      RetentionInDays: 7
+
+Outputs:
+  oEcsServiceLogGroupArn:
+    Description: rEcsServiceLogGroup Arn
+    Value: !Ref rEcsServiceLogGroup

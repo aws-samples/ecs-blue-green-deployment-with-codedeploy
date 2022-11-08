@@ -1,0 +1,125 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates code deploy project for ECS blue/green deployment
+
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+  pMonitoringTopicArn:
+    Description: Monitoring Topic Arn
+    Type: String
+  pECSCodeDeployRole:
+    Description: The short name or full Amazon Resource Name (ARN) of the CodeDeploy role for ECS
+    Type: String
+  pBlueTargetGroupName:
+    Description: Blue TargetGroup Name
+    Type: String
+  pGreenTargetGroupName:
+    Description: Green TargetGroup Name
+    Type: String
+  pProdTrafficRoute:
+    Description: Loadbalancer from load-balancer.yaml
+    Type: String
+  pTestTrafficRoute:
+    Description: Loadbalancer from load-balancer.yaml
+    Type: String
+  pIteration:
+    Description: An integer used to distinguish between instances of the same resource in support ofeither horizontally scaled groups of resources or partitioned resources
+    Type: String
+    Default: '01'
+  pFargateServiceName:
+    Description: The name of the ECS fargate service 
+    Type: String
+  pClusterName:
+    Description: The name of the ECS cluster 
+    Type: String
+  pDeploymentConfig:
+    Type: String
+    Default: CodeDeployDefault.ECSAllAtOnce
+    AllowedValues: 
+      - CodeDeployDefault.ECSAllAtOnce
+      - CodeDeployDefault.ECSCanary10Percent5Minutes
+      - CodeDeployDefault.ECSCanary10Percent15Minutes
+      - CodeDeployDefault.ECSLinear10PercentEvery1Minutes
+      - CodeDeployDefault.ECSLinear10PercentEvery3Minutes
+    Description: Enter one of the listed values from the dropdown. Default is CodeDeployDefault.ECSAllAtOnce.
+  pTerminationTimeInMinutes:
+    Description: The number of minutes before deleting the original (blue) task set. During an Amazon ECS deployment, 
+                 CodeDeploy shifts traffic from the original (blue) task set to a replacement (green) task set.
+                 The maximum setting is 2880 minutes (2 days). 
+    Type: String
+
+Resources:
+  rCodeDeployApplicationBG:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Sub "${pApp}-cd-app" ## This name has to match what is used in CodePipeline
+      ComputePlatform: ECS 
+
+  rCodeDeployDeploymentGroupCustomResourceBG:
+    Type: Custom::CodeDeployDeploymentGroup
+    Properties:
+      ServiceToken: !GetAtt rCodeDeployDeploymentGroupLambdaBG.Arn
+      applicationName: !Ref rCodeDeployApplicationBG
+      deploymentGroupName: !Sub "${pApp}-deployment-group"
+      deploymentConfigName: !Ref pDeploymentConfig
+      serviceRoleArn: !Ref pECSCodeDeployRole
+      CDtriggerName: !Sub ${pApp}-bg-codedeploy-trigger
+      CDtriggerTargetArn: !Ref pMonitoringTopicArn
+      ECSalbTargetGroupBlue: !Ref pBlueTargetGroupName
+      ECSalbTargetGroupGreen: !Ref pGreenTargetGroupName
+      ECSprodTrafficRoute: !Ref pProdTrafficRoute
+      ECStestTrafficRoute: !Ref pTestTrafficRoute
+      ECSFargateBGService: !Ref pFargateServiceName
+      ECSFargateBGCluster: !Ref pClusterName
+      TerminationTimeInMinutes: !Ref pTerminationTimeInMinutes
+
+  rCodeDeployDeploymentGroupLambdaBG:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code: ./../../code-deploy/custom-resource/deploymentgroup
+      Description: Custom resource lambda for CodeDeploy DeploymentGroup
+      Handler: "CodeDeployDeploymentGroupLambdaBG.lambda_handler"
+      MemorySize: 128
+      Role: !GetAtt rCustomResourceLambdaRole.Arn
+      Runtime: "python3.7"
+      Timeout: 20
+
+  rCustomResourceLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: 
+                - lambda.amazonaws.com         
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSCodeDeployFullAccess
+      Policies:
+        - PolicyName: CodeDeploy-Actions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - iam:PassRole
+              - iam:GetRole
+              Resource: !Ref pECSCodeDeployRole
+
+Outputs:
+  oCodeDeployApplicationNameBG:
+    Description: CodeDeploy Application Name Return Value of Lambda Function
+    Value: !Ref rCodeDeployApplicationBG
+  oCodeDeployDeploymentGroupNameBG:
+    Description: CodeDeploy Deployment Group Name Return Value of Lambda Function 
+    Value: !GetAtt rCodeDeployDeploymentGroupCustomResourceBG.CodeDeployDeploymentGroupName
+  oCodeDeployTriggerNameBG:
+    Description: Blue/Green Deployment Notifications Trigger Name Return Value of Lambda Function 
+    Value: !GetAtt rCodeDeployDeploymentGroupCustomResourceBG.BGNotificationsTriggerName

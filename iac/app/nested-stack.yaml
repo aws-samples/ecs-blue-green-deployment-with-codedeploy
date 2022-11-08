@@ -1,0 +1,249 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  pApplicationName:
+    Description: Provide the name of the app component
+    Type: String
+  pVpcId:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: ID of VPC where resources will be created.
+  pPublicSubnetIdentifiera:
+    Type: 'AWS::EC2::Subnet::Id'
+    Description: ID of the Public subnet where ALB resources will be created.
+  pPublicSubnetIdentifierb:
+    Type: 'AWS::EC2::Subnet::Id'
+    Description: ID of the Public subnet where ALB resources will be created.
+  pPrivateSubnetIdentifiera:
+    Type: 'AWS::EC2::Subnet::Id'
+    Description: ID of the Private subnet where ECS resources will be created.
+  pPrivateSubnetIdentifierb:
+    Type: 'AWS::EC2::Subnet::Id'
+    Description: ID of the Private subnet where ECS resources will be created.
+  pApplicationImage:
+    Description: Provide the packaged application image id.
+    Type: String
+    Default: ""
+  pCloudWatchAlarmFlag:
+    Description: This parameter defines if we need a cloudwatch alaram
+    Type: String
+  pDesiredCount:
+    Description: Provide the desired number of task instances to run in the ECS cluster.
+    Type: Number
+  pMonitoringEmailAddress:
+    Description: Provide Monitoring email address
+    Type: String
+  pAppPort:
+    Description: The container port where the application is listening for request
+    Type: String
+    Default: 8080
+  pRoute53Domain:
+    Type: String
+    Description: The route53 public domain within the current account.
+  pRoute53HostedZoneId:
+    Description: The ID of the hosted zone that you want to create records in.
+    Type: String
+  pCertificateArn:
+    Description: Certificates for ALB
+    Type: String
+  pDeploymentConfig:
+    Type: String
+    Default: CodeDeployDefault.ECSAllAtOnce
+    AllowedValues: 
+      - CodeDeployDefault.ECSAllAtOnce
+      - CodeDeployDefault.ECSCanary10Percent5Minutes
+      - CodeDeployDefault.ECSCanary10Percent15Minutes
+      - CodeDeployDefault.ECSLinear10PercentEvery1Minutes
+      - CodeDeployDefault.ECSLinear10PercentEvery3Minutes
+    Description: Enter one of the listed values from the dropdown. Default is CodeDeployDefault.ECSAllAtOnce.
+  pTerminationTimeInMinutes:
+    Description: The number of minutes before deleting the original (blue) task set. During an Amazon ECS deployment, 
+                 CodeDeploy shifts traffic from the original (blue) task set to a replacement (green) task set.
+                 The maximum setting is 2880 minutes (2 days). 
+    Type: String
+  pAppTestingExpectedString:
+    Description: The expected string to check for to validate application functionality
+    Type: String
+
+Resources:
+  rDashboardStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/dashboard.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pClusterName: !GetAtt rEcsClusterStack.Outputs.oECSClusterName
+        pLoadBalancerFullName: !GetAtt rLoadBalancerStack.Outputs.oLoadBalancerFullName
+        pServiceName: !GetAtt rEcsServiceStack.Outputs.oEcsFargateServiceName
+
+  rEcsClusterStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-cluster.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+
+  rEcsServiceAlarmsStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-service-alarms.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pCloudWatchAlarmFlag: !Ref pCloudWatchAlarmFlag
+        pClusterName: !GetAtt rEcsClusterStack.Outputs.oECSClusterName
+        pFargateServiceName: !GetAtt rEcsServiceStack.Outputs.oEcsFargateServiceName
+        pMonitoringTopicArn: !GetAtt rMonitoringTopicStack.Outputs.oMonitoringTopicArn
+        pTargetGroupFullName: !GetAtt rEcsServiceBlueTargetGroupStack.Outputs.oEcsFargateTargetGroupFullName
+
+  rEcsServiceBlueTargetGroupStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-service-target-group.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pLoadBalancerListener: !GetAtt rLoadBalancerStack.Outputs.oLoadBalancerBlueListenerArn
+        pVpcId: !Ref pVpcId
+
+  rEcsServiceGreenTargetGroupStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-service-target-group.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pAppPort: !Ref pAppPort
+        pLoadBalancerListener: !GetAtt rLoadBalancerStack.Outputs.oLoadBalancerGreenListenerArn
+        pVpcId: !Ref pVpcId
+
+  rEcsServiceLogGroupStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-service-log-group.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+
+  rEcsServiceTaskStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-service-task.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pAppPort: !Ref pAppPort
+        pApplicationImage: !Ref pApplicationImage
+        pEcsServiceLogGroupArn: !GetAtt rEcsServiceLogGroupStack.Outputs.oEcsServiceLogGroupArn
+        pTaskExecutionRole: !GetAtt rECSIamRolesStack.Outputs.oServiceTaskExecutionRoleArn
+
+  rEcsServiceStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-service.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pClusterName: !GetAtt rEcsClusterStack.Outputs.oECSClusterName
+        pDesiredCount: !Ref pDesiredCount
+        pEcsFargateTargetGroupArn: !GetAtt rEcsServiceBlueTargetGroupStack.Outputs.oEcsFargateTargetGroupArn
+        pFargateServiceSecurityGroup: !GetAtt rSecurityGroupsStack.Outputs.oFargateServiceSecurityGroup
+        pTaskDefinitionArn: !GetAtt rEcsServiceTaskStack.Outputs.oTaskDefinitionArn
+        pPrivateSubnetIdentifiera: !Ref pPrivateSubnetIdentifiera
+        pPrivateSubnetIdentifierb: !Ref pPrivateSubnetIdentifierb        
+
+  rEcsAutoScalingStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-service-autoscaling.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pECSClusterName: !GetAtt rEcsClusterStack.Outputs.oECSClusterName
+        pDesiredCount: !Ref pDesiredCount
+        pEcsAutoScalingRole: !GetAtt rECSIamRolesStack.Outputs.oEcsAutoScalingRole
+        pEcsFargateServiceName: !GetAtt rEcsServiceStack.Outputs.oEcsFargateServiceName
+
+  rECSIamRolesStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/ecs-iam-roles.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+
+  rLoadBalancerStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/load-balancer.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pCloudWatchAlarmFlag: !Ref pCloudWatchAlarmFlag
+        pRoute53Domain: !Ref pRoute53Domain
+        pRoute53HostedZoneId: !Ref pRoute53HostedZoneId
+        pLoadBalancerSecurityGroup: !GetAtt rSecurityGroupsStack.Outputs.oLoadBalancerSecurityGroupArn
+        pMonitoringTopicArn: !GetAtt rMonitoringTopicStack.Outputs.oMonitoringTopicArn
+        pCertificateArn: !Ref pCertificateArn
+        pPublicSubnetIdentifiera: !Ref pPublicSubnetIdentifiera
+        pPublicSubnetIdentifierb: !Ref pPublicSubnetIdentifierb
+
+  rMonitoringTopicStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/monitoring-topic.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pMonitoringEmailAddress: !Ref pMonitoringEmailAddress
+
+  rSecurityGroupsStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/security-groups.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pVpcId: !Ref pVpcId
+
+  rDeploymentGroupStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/codedeploy-deployment-group.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pECSCodeDeployRole: !GetAtt rECSIamRolesStack.Outputs.oECSCodeDeployRole
+        pMonitoringTopicArn: !GetAtt rMonitoringTopicStack.Outputs.oMonitoringTopicArn      
+        pBlueTargetGroupName: !GetAtt rEcsServiceBlueTargetGroupStack.Outputs.oEcsFargateTargetGroupName
+        pGreenTargetGroupName: !GetAtt rEcsServiceGreenTargetGroupStack.Outputs.oEcsFargateTargetGroupName
+        pProdTrafficRoute: !GetAtt rLoadBalancerStack.Outputs.oLoadBalancerBlueListenerArn
+        pTestTrafficRoute: !GetAtt rLoadBalancerStack.Outputs.oLoadBalancerGreenListenerArn
+        pFargateServiceName: !GetAtt rEcsServiceStack.Outputs.oEcsFargateServiceName
+        pClusterName: !GetAtt rEcsClusterStack.Outputs.oECSClusterName
+        pDeploymentConfig: !Ref pDeploymentConfig
+        pTerminationTimeInMinutes : !Ref pTerminationTimeInMinutes
+
+  rCodeDeployHooksLambdaStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: templates/codedeploy-afterinstallhook-lambda.yaml
+      Parameters:
+        pApp: !Ref pApplicationName
+        pAppURL: !Sub 'https://${pApplicationName}.${pRoute53Domain}:8443'
+        pAppTestingString: !Ref pAppTestingExpectedString
+
+Outputs:
+  oEcsFargateServiceName:
+    Description: ECS Fargate Service Name
+    Value: !GetAtt rEcsServiceStack.Outputs.oEcsFargateServiceName
+  oDeploymentGroupName:
+    Description: CodeDeploy Deployment Group Name
+    Value: !GetAtt rDeploymentGroupStack.Outputs.oCodeDeployDeploymentGroupNameBG
+  oAfterInstallHookLambdaArn:
+    Description: CodeDeploy after install hook lambda arn
+    Value: !GetAtt rCodeDeployHooksLambdaStack.Outputs.oAfterInstallHookLambdaArn
+  oClusterName:
+    Description: ECS Cluster Name
+    Value: !GetAtt rEcsClusterStack.Outputs.oECSClusterName
+  oCodeDeployAppName:
+    Description: CodeDeploy Application Name
+    Value: !GetAtt rDeploymentGroupStack.Outputs.oCodeDeployApplicationNameBG
+  oTaskDefinitionArn:
+    Description: TaskDefinition Arn
+    Value: !GetAtt rEcsServiceTaskStack.Outputs.oTaskDefinitionArn
+  oContainerName:
+    Description: ECS Task Container Name
+    Value: !GetAtt rEcsServiceTaskStack.Outputs.oContainerName
+  oUrl:
+    Description: Application URL
+    Value: !Sub 'https://${pApplicationName}.${pRoute53Domain}'

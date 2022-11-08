@@ -1,0 +1,67 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: The AWS CloudFormation template for IAM Roles
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+
+Resources:
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-IAM
+
+  #Create the ECS task execution role.
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
+  rECSTaskExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: !Sub '${pApp}-ecsTaskExecutionRole'
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Action: sts:AssumeRole
+              Effect: Allow
+              Principal:
+                Service: ecs-tasks.amazonaws.com
+        Path: '/'
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  # IAM Auto scaling role for ECS
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
+  rECSAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${pApp}-svc-autoscale
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole
+
+  rECSCodeDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${pApp}-svc-codedeploy
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codedeploy.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS
+Outputs: 
+  oServiceTaskExecutionRoleArn:
+    Description: rECSTaskExecutionRole Arn
+    Value: !Ref rECSTaskExecutionRole
+  oEcsAutoScalingRole:
+    Description: The Amazon Resource Name of the auto scaling role for ecs nodes
+    Value: !GetAtt rECSAutoScalingRole.Arn
+  oECSCodeDeployRole:
+    Description: The Amazon Resource Name of the auto scaling role for ecs nodes
+    Value: !GetAtt rECSCodeDeployRole.Arn

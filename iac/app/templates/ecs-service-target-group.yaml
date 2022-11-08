@@ -1,0 +1,84 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This template deploys the service target group.
+Metadata:
+  version: 1.0.0
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+  pLoadBalancerListener:
+    Description: Loadbalancer listener
+    Type: String
+    
+  # pVpcId:
+  #   Description: SSM Parameter with the ID of VPC where resources will be created. VPC is loaded into the paramater
+  #                store when an ELZ account is provisioned. The parameter store key is the "Default:" value provided below. 
+  #   Type: 'AWS::SSM::Parameter::Value<AWS::EC2::VPC::Id>'
+  #   Default: /sharedservices/us-east-1/vpc/vpc
+  pVpcId:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: ID of VPC where resources will be created. 
+
+  pPriority:
+    Description: Priority for listener rule
+    Type: Number
+    Default: 65
+  pAppPort:
+    Description: The container port where the application is listening for request
+    Type: String
+    Default: 8080
+
+Resources:
+  #Create the Target Group for an Application Load Balancer
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-ALB
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html
+  rEcsFargateTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref pVpcId
+      Port: !Ref pAppPort
+      Protocol: HTTP
+      Matcher:
+        HttpCode: 200-302
+      HealthCheckIntervalSeconds: 5
+      HealthCheckPath: "/"
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 4
+      HealthyThresholdCount: 3
+      TargetType: "ip"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  #Create the Listener Rule 
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html
+  rEcsFargateListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref pLoadBalancerListener
+      Priority: !Ref pPriority
+      Conditions:
+        - Field: path-pattern
+          Values: 
+            - "/"
+            - "/hello/*"
+            - "hello*"
+      Actions:
+        - TargetGroupArn: !Ref rEcsFargateTargetGroup
+          Type: forward
+ 
+ 
+Outputs:
+  oEcsFargateTargetGroupArn:
+    Description: rEcsFargateTargetGroup Arn
+    Value: !Ref rEcsFargateTargetGroup
+  oEcsFargateTargetGroupFullName: 
+    Description: rEcsFargateTargetGroup FullName
+    Value: !GetAtt rEcsFargateTargetGroup.TargetGroupFullName
+  oEcsFargateTargetGroupName: 
+    Description: rEcsFargateTargetGroup Name
+    Value: !GetAtt rEcsFargateTargetGroup.TargetGroupName

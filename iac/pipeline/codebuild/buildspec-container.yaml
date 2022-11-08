@@ -1,0 +1,51 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+version: 0.2
+
+env:
+  exported-variables:
+    - IMAGE_URI
+#     REPOSITORY_URI: '915003163351.dkr.ecr.us-east-1.amazonaws.com/${E'
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $REPOSITORY_URI
+      - IMAGE_TAG=$(echo $CODEBUILD_SOURCE_VERSION |cut -d/ -f4 |cut -d'.' -f1)
+      - TIMESTAMP=$(date +%Y%m%d%H%M)
+      - echo $IMAGE_TAG
+
+      # # Getting credentials to pass to docker
+      # - echo "Installing jq..."
+      # - curl -qLk -o jq https://stedolan.github.io/jq/download/linux64/jq && chmod +x ./jq
+      # - curl -qL -o aws_credentials.json http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI > /tmp/aws_credentials.json
+      # - AWS_ACCESS_KEY_ID=$(./jq -r '.AccessKeyId' /tmp/aws_credentials.json)
+      # - AWS_SECRET_ACCESS_KEY=$(./jq -r '.SecretAccessKey' /tmp/aws_credentials.json)
+      # - AWS_SESSION_TOKEN=$(./jq -r '.Token' /tmp/aws_credentials.json)
+
+      # Move build target to current directory
+      #- cp -r ${CODEBUILD_SRC_DIR_Build}/* .
+
+  build:
+    commands:
+      - echo Building the Docker image...
+      - docker build --tag $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:${IMAGE_TAG}
+      - IMAGE_URI=$REPOSITORY_URI:${IMAGE_TAG}
+      - echo IMAGE_URI
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - printf '{"build.Image_Tag":"%s", "build.Image_Uri":"%s", "timestamp":"%s"}' "$(echo ${IMAGE_TAG})" "$(echo ${IMAGE_URI})" "$(echo ${TIMESTAMP})" > /tmp/build.json
+      - printf '{"ImageURI":"%s"}' "$(echo ${IMAGE_URI})" > imageDetail.json
+
+artifacts:
+  files:
+    - /tmp/build.json
+    - imageDetail.json
+  discard-paths: yes

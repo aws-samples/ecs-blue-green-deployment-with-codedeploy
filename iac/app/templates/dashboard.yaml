@@ -1,0 +1,125 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This template creates a DashBoard for the ecsfargate applicatio 
+Metadata:
+  version: 1.0.0
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+  pClusterName:
+    Description: Name of the Cluster.
+    Type: String
+  pLoadBalancerFullName:
+    Description: The full name of the Load Balancer.
+    Type: String
+  pServiceName:
+    Description: Name of the Service.
+    Type: String
+
+Resources:
+  #Create an AWS Cloudwatch Dashboard to monitor resources for our application
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-CloudWatch
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-dashboard.html
+  rBasicDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${pApp}-dashboard'
+      DashboardBody: !Sub
+        - |-
+          {
+            "widgets":[
+                {
+                  "type":"metric",
+                  "x":12,
+                  "y":0,
+                  "width":6,
+                  "height":6,
+                  "properties":{
+                      "view":"timeSeries",
+                      "stacked":false,
+                      "metrics":[
+                        [
+                            "AWS/ApplicationELB",
+                            "HTTPCode_ELB_5XX_Count",
+                            "LoadBalancer",
+                            "${LoadBalancer}"
+                        ]
+                      ],
+                      "region":"${AWS::Region}",
+                      "title":"${pApp}Loadbalancer 5XX count"
+                  }
+                },
+                {
+                  "type":"metric",
+                  "x":0,
+                  "y":6,
+                  "width":6,
+                  "height":6,
+                  "properties":{
+                      "view":"timeSeries",
+                      "stacked":false,
+                      "metrics":[
+                        [
+                            "AWS/ApplicationELB",
+                            "HTTPCode_ELB_4XX_Count",
+                            "LoadBalancer",
+                            "${LoadBalancer}"
+                        ]
+                      ],
+                      "region":"${AWS::Region}",
+                      "title":"${pApp}LoadBalancer 4xx"
+                  }
+                },
+                {
+                  "type":"metric",
+                  "x":6,
+                  "y":6,
+                  "width":6,
+                  "height":6,
+                  "properties":{
+                      "view":"timeSeries",
+                      "stacked":false,
+                      "metrics":[
+                        [
+                            "AWS/ApplicationELB",
+                            "RequestCount",
+                            "LoadBalancer",
+                            "${LoadBalancer}"
+                        ],
+                        [
+                            ".",
+                            "TargetResponseTime",
+                            ".",
+                            "."
+                        ]
+                      ],
+                      "region":"${AWS::Region}",
+                      "title":"${pApp}Loadbalancer Request and Response"
+                  }
+                },
+                {
+                    "type": "metric",
+                    "x": 12,
+                    "y": 6,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ECS", "MemoryUtilization", "ServiceName", "${ServiceName}", "ClusterName", "${ECSClusterName}" ],
+                            [ ".", "CPUUtilization", ".", ".", ".", "." ]
+                        ],
+                        "region": "us-east-1",
+                        "title": "${pApp} ECS Cluster Memory/CPU Utilization"
+                    }
+                }
+            ]
+          }
+        -
+          ServiceName: !Ref pServiceName
+          ECSClusterName: !Ref pClusterName
+          LoadBalancer: !Ref pLoadBalancerFullName

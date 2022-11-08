@@ -1,0 +1,29 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+version: 0.2
+
+phases:
+#  install:
+#    commands:
+#      - apt-get update -y
+#      - apt-get install -y maven
+
+  build:
+    commands:
+      - export MAVEN_CLI_OPTS="--batch-mode --errors --fail-at-end --show-version"
+      - echo Build started on `date`
+      - echo ENV_APP_NAME:${ENV_APP_NAME}
+      - mvn $MAVEN_CLI_OPTS clean verify install
+
+  pre_build:
+    commands:
+      #- cat pom.xml |grep '<version>' |head -1 |sed 's/<version>//g' |sed 's/-SNAPSHOT<\/version>//g' |sed 's/ //g' > /tmp/app_version.txt
+      - echo "${CODEBUILD_BUILD_ID}"
+ 
+
+artifacts:
+  files:
+    - target/helloworld.war
+    - iac/pipeline/codebuild/buildspec-container.yaml
+    - Dockerfile

@@ -1,0 +1,83 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Metadata:
+  version: 1.0.0
+Description: >
+  This template creates the required security groups for the ecsfargate Application.
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+  pVpcId:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: ID of VPC where resources will be created.
+
+
+Resources:
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-EC2
+
+  #Create Security Group for the load balancer - see load-balancer.yaml
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+  rLoadBalancerSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupName: !Sub '${pApp}-loadbalancers'
+      GroupDescription: !Sub 'security group for ${pApp} Load Balancer'
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "TCP"
+          FromPort: 443
+          ToPort: 443
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "TCP"
+          FromPort: 80
+          ToPort: 80
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "TCP"
+          FromPort: 8080
+          ToPort: 8080
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "TCP"
+          FromPort: 8443
+          ToPort: 8443
+      SecurityGroupEgress:
+        - CidrIp: "10.0.0.0/8"
+          IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${pApp}-loadbalancers'
+
+  #Create Security Group for the Fargate Service - See ecs-service.yaml
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+  rFargateServiceSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupName: !Sub '${pApp}-fargateservices'
+      GroupDescription: !Sub 'security group for ${pApp} fargate service'
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref rLoadBalancerSecurityGroup
+          IpProtocol: "TCP"
+          FromPort: 8080
+          ToPort: 8080
+      SecurityGroupEgress:
+        - CidrIp: "10.0.0.0/0"
+          IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+      VpcId: !Ref pVpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${pApp}-fargateservices'
+
+Outputs:
+  oFargateServiceSecurityGroup:
+    Description: 'A reference to the security group for fargateservice Component'
+    Value: !Ref rFargateServiceSecurityGroup
+  oLoadBalancerSecurityGroupArn:
+    Description: 'A reference to the security group for load-balancer'
+    Value: !Ref rLoadBalancerSecurityGroup

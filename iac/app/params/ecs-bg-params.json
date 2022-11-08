@@ -1,0 +1,20 @@
+{
+    "Parameters" : {
+        "pApplicationName":"ecsfargate-sampleapp",
+        "pAppPort": "8080",
+        "pVpcId":"<VPC_ID>",
+        "pPrivateSubnetIdentifiera":"<PRIVATE_SUBNET_ID_1>",
+        "pPrivateSubnetIdentifierb":"<PRIVATE_SUBNET_ID_2>",
+        "pPublicSubnetIdentifiera":"<PUBLIC_SUBNET_ID_1>",
+        "pPublicSubnetIdentifierb":"<PUBLIC_SUBNET_ID_2>",
+        "pRoute53HostedZoneId":"<ROUTE53_HOSTED_ZONE_ID>",
+        "pDesiredCount":"1",
+        "pCloudWatchAlarmFlag":"false",
+        "pMonitoringEmailAddress":"<EMAIL_ADDRESS_FOR_ALERTS>",
+        "pRoute53Domain":"<ROUTE53_DOMAIN>",
+        "pCertificateArn":"<ACM_CERT_ARN>",
+        "pTerminationTimeInMinutes":"10",
+        "pDeploymentConfig":"CodeDeployDefault.ECSCanary10Percent5Minutes",
+        "pAppTestingExpectedString":"Hello World"
+    }
+}

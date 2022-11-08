@@ -1,0 +1,26 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  Template to deploy the Cluster
+Metadata:
+  version: 1.0.0
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+
+Resources:
+  #Create the ECS (Elastic Container Service) Cluster for the application. 
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-ECS
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-cluster.html
+  rECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${pApp}-ecscluster'
+
+Outputs:
+  oECSClusterName:
+    Value: !Ref rECSCluster # Ref returns the resource name.
+

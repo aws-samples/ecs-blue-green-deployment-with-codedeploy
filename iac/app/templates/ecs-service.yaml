@@ -1,0 +1,98 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This template deploys The EcsFargate service.
+Metadata:
+  version: 1.0.0
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+  pClusterName:
+    Description: The short name or full Amazon Resource Name (ARN) of the cluster on which to run your service. .
+    Type: String
+  pDesiredCount:
+    Description: Provide the desired number of task definition instances to run in cluster
+    Type: Number
+  pEcsFargateTargetGroupArn:
+    Description: The short name or full Amazon Resource Name (ARN) of the Target Group
+    Type: String
+  pFargateServiceSecurityGroup:
+    Description: Security group for Fargate Service from security-groups.yaml
+    Type: String
+  pPrivateSubnetIdentifiera:
+    Type: 'AWS::EC2::Subnet::Id'
+    Description: ID of the subnet where ECS resources will be created.
+  pPrivateSubnetIdentifierb:
+    Type: 'AWS::EC2::Subnet::Id'
+    Description: ID of the subnet where ECS resources will be created.
+  pTaskDefinitionArn:
+    Description: The short name or full Amazon Resource Name (ARN) of the Task Definition
+    Type: String
+
+Resources:
+  rEcsFargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref pClusterName
+      DesiredCount: !Ref pDesiredCount
+      DeploymentController:
+        Type: CODE_DEPLOY
+      TaskDefinition: !GetAtt rECSTaskDefinitionResource.TaskDefinition
+      LaunchType: FARGATE
+      HealthCheckGracePeriodSeconds: 60 #The grace time allowed for task to start before health check gives an error
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref pFargateServiceSecurityGroup
+          Subnets:
+            - !Ref pPrivateSubnetIdentifiera
+            - !Ref pPrivateSubnetIdentifierb
+      LoadBalancers:
+        - ContainerName: !Sub '${pApp}'
+          ContainerPort: 8080
+          TargetGroupArn:
+            !Ref pEcsFargateTargetGroupArn
+      ServiceName: !Sub '${pApp}-fargateservice'
+      SchedulingStrategy: REPLICA
+
+  rECSTaskDefinitionFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  rECSTaskDefinitionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code: ./../../code-deploy/custom-resource/taskdef
+      Description: Function to return initial task definition for the ECS Service
+      Handler: TaskDefinitionLambda.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt rECSTaskDefinitionFunctionRole.Arn
+      Runtime: python3.7
+      Timeout: 30
+
+  rECSTaskDefinitionResource:
+    Type: Custom::ECSTaskDefinitionResource
+    Properties:
+      ServiceToken: !GetAtt rECSTaskDefinitionFunction.Arn
+      TaskDefinition: !Ref pTaskDefinitionArn
+      
+Outputs:
+  oEcsFargateServiceArn:
+    Description: rEcsFargateService Arn
+    Value: !Ref rEcsFargateService
+  oEcsFargateServiceName:
+    Description: rEcsFargateService Name
+    Value: !GetAtt rEcsFargateService.Name

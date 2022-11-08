@@ -1,0 +1,61 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates code deploy deployment for ECS blue/green deployment
+
+Parameters:
+  pTaskDefinitionARN:
+    Description: ECS Task Definition ARN
+    Type: String
+  pDeploymentGroupName:
+    Description: The name of the Deployment Group for ECS CodeDeploy application  
+    Type: String
+  pCodeDeployAppName:
+    Description: The name of the ECS CodeDeploy application  
+    Type: String
+  pContainerPort:
+    Description: Container name used in the ECS Task definition
+    Type: String
+  pContainerName:
+    Description: Container port used in the ECS Task definition
+    Type: String
+    Default: 8080
+
+Resources:
+  rCodeDeployDeploymentResourceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code: ./../../blue-green/resource/codedeploy
+      Description: Custom resource lambda for Code-Deploy Deployment
+      # Handler: index.lambda_handler
+      Handler: CodeDeployDeploymentLambda.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt rCustomResourceLambdaRole.Arn
+      Runtime: python3.7
+      Timeout: 30
+
+  rCodeDeployDeploymentResource:
+    Type: Custom::CodeDeployDeployment
+    Properties:
+      ServiceToken: !GetAtt rCodeDeployDeploymentResourceFunction.Arn
+      applicationName: !Ref pCodeDeployAppName
+      deploymentGroupName: !Ref pDeploymentGroupName
+      TaskDefinition: !Ref pTaskDefinitionARN
+      ContainerName: !Ref pContainerName
+      ContainerPort: !Ref pContainerPort
+
+  rCustomResourceLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: 
+                - lambda.amazonaws.com         
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSCodeDeployDeployerAccess

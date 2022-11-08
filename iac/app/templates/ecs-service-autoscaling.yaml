@@ -1,0 +1,125 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This template the auto scaling for the EcsFargate application.
+Metadata:
+  version: 1.0.0
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+  pCpuScaleInCooldown:
+    Type: Number
+    Default: 60
+    MinValue: 0
+    MaxValue: 300
+    Description: The number of seconds to wait before performing another scale in based on average cpu utilization. Default to 60 - override as needed.
+  pCpuScaleOutCooldown:
+    Type: Number
+    Default: 60
+    MinValue: 0
+    MaxValue: 300
+    Description: The number of seconds to wait before performing another scale out based on average cpu utilization. Default to 60 - override as needed.
+  pCpuAutoScalingTargetValue:
+    Type: Number
+    Default: 75
+    MinValue: 0
+    MaxValue: 100
+    Description: The target average CPU utilization percent before scaling out/in occurs. Default to 70 - override as needed.
+  pDesiredCount:
+    Description: Provide the desired number of task definition instances to run in cluster
+    Type: Number
+  pEcsAutoScalingRole:
+    Description: The short name or full Amazon Resource Name (ARN) of the auto scaling role
+    Type: String
+  pECSClusterName:
+    Description: The name of the ecs cluster 
+    Type: String
+  pEcsFargateServiceName:
+    Description: The name of the ecs fargate service 
+    Type: String
+  pMaxContainers:
+    Type: Number
+    Default: 5
+    Description: The maximum number of nodes that can be in the cluster. Default to a max of 5 - override as needed.
+  pMemoryAutoScalingTargetValue:
+    Type: Number
+    Default: 75
+    MinValue: 0
+    MaxValue: 100
+    Description: The target average memory utilization percent before scaling out/in occurs. Default to 75 - override as needed.
+  pMemoryScaleInCooldown:
+    Type: Number
+    Default: 60
+    MinValue: 0
+    MaxValue: 300
+    Description: The number of seconds to wait before performing another scale in based on average cpu utilization. Default to 60 - override as needed. 
+  pMemoryScaleOutCooldown:
+    Type: Number
+    Default: 60
+    MinValue: 0
+    MaxValue: 300
+    Description: The number of seconds to wait before performing another scale out based on average cpu utilization. Default to 60  - override as needed.
+
+Resources:
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-ECS
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationautoscaling-scalabletarget.html#cfn-applicationautoscaling-scalabletarget-resourceid
+  #Define how the service will scale.
+  AutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref pDesiredCount
+      MaxCapacity: !Ref pMaxContainers
+      ResourceId:
+        Fn::Sub:
+        - "service/${ecsClusterName}/${ecsServiceName}"
+        - ecsClusterName: !Ref pECSClusterName
+          ecsServiceName: !Ref pEcsFargateServiceName
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      # AWS ARN and IAM role that allow auto scaling
+      RoleARN:
+        !Ref pEcsAutoScalingRole
+
+            # Fn::ImportValue:
+            #   !Sub ${pSystem}-${pIteration}-${pApp}-${pEnvironment}-ecscluster
+
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationautoscaling-scalingpolicy.html
+  # Auto scaling based on cpu usage for the target specified in the ScalingTargetId.. When CPU utilization is more
+  # than the value specified in the TargetValue parameter, ECS will scale out. When CPU utilization is less than the value
+  # specified in the TargetValue parameter, ECS will attempt to scale in. ECS will wait the number of seconds
+  # specified in the ScaleInCooldown and ScaleOutCooldown before performing subsequent scale downs or ups.
+  CPUAutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${pApp}-cpuscalepolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: !Ref pCpuScaleInCooldown
+        ScaleOutCooldown: !Ref pCpuScaleOutCooldown
+        # Desired cpu utilization
+        TargetValue: !Ref pCpuAutoScalingTargetValue
+
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationautoscaling-scalingpolicy.html
+  # Auto scaling based on memory usage for the target specified in the ScalingTargetId. When average memory utilization
+  # is more than the value specified in the TargetValue parameter, ECS will scale out. When memory utilization is less
+  # than the value specified in the TargetValue parameter, ECS will attempt to scale in. ECS will wait the number of seconds
+  # specified in the ScaleInCooldown and ScaleOutCooldown before performing subsequent scale downs or ups.
+  MemoryAutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${pApp}-memoryscalepolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        ScaleInCooldown: !Ref pMemoryScaleInCooldown
+        ScaleOutCooldown: !Ref pMemoryScaleOutCooldown
+        # Desired average memory utilization
+        TargetValue: !Ref pMemoryAutoScalingTargetValue

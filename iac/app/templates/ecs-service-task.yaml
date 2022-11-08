@@ -1,0 +1,66 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  This template deploys The EcsFargate application using task definitions within ECS services.
+Metadata:
+  version: 1.0.0
+Parameters:
+  pApp:
+    Description: Name of the Application to which the resource belongs
+    Type: String
+  pApplicationImage:
+    Description: Provide the packaged application image id.
+    Type: String 
+  pEcsServiceLogGroupArn:
+    Description: The short name or full Amazon Resource Name (ARN) of the cluster on which to run your service.
+    Type: String
+  pTaskExecutionRole:
+    Description: The task execution role exported from ecs-task-role.yaml
+    Type: String
+  pAppPort:
+    Description: The container port where the application is listening for request
+    Type: String
+    Default: 8080
+
+
+Resources:
+  #See AWS Resource Naming Standards - https://exampleent.atlassian.net/wiki/spaces/CLOUDDOC/pages/149718262/ELZ+AWS+Resource+Naming+Standards#ELZAWSResourceNamingStandards-ECS
+
+  #Create the ECS TaskDefinition - describes the container and volume definitions of an Amazon Elastic Container Service (Amazon ECS) task.
+  #See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
+  rTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${pApp}-TaskDef'
+      RequiresCompatibilities:
+        - "FARGATE"
+      Memory: '4096'
+      Cpu: '1024'
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !Ref pTaskExecutionRole
+      ContainerDefinitions:
+        - Name: !Sub '${pApp}'
+          Image: !Ref pApplicationImage
+          Essential: true
+          Memory: 512 #2048
+          Cpu: 1024
+          PortMappings:
+            - HostPort: !Ref pAppPort
+              Protocol: tcp
+              ContainerPort: !Ref pAppPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref pEcsServiceLogGroupArn
+              awslogs-stream-prefix: !Sub '/${pApp}/ecs'
+
+Outputs:
+  oTaskDefinitionArn:
+    Description: rTaskDefinition Arn
+    Value: !Ref rTaskDefinition
+  oContainerName:
+    Description: Container Name
+    Value: !Sub '${pApp}'

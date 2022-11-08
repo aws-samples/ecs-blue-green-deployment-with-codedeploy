@@ -1,0 +1,116 @@
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  pApp:
+    Description: Provide the name of the app component
+    Type: String
+  pAppURL:
+    Description: URL of the application Site to be tested after deployment
+    Type: String 
+  pAppTestingString:
+    Description: String expected to be tested on the Application Site URL page 
+    Type: String     
+
+Resources:
+  rAfterInstallHookLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${pApp}-codedeploy-lifecyclehook-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: !Sub "${pApp}-codedeploy-lifecyclehook-lambda-policy"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: 
+              - 'codedeploy:PutLifecycleEventHookExecutionStatus'
+            Resource: '*'
+
+  rAfterInstallHookLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Sub "${pApp}-codedeploy-afterinstall-hook-lambda"
+      Description: This function tests the deployed application as a AfterInstall Hook
+      Handler: index.lambda_handler
+      Code:
+        ZipFile: |
+          import os
+          from datetime import datetime
+          from urllib.request import Request, urlopen
+          import json
+          import ssl
+          import boto3
+
+          SITE = os.environ['site_url']  # URL of the site to check, stored in the site environment variable
+          EXPECTED = os.environ['page_expected_string']  # String expected to be on the page, stored in the expected environment variable
+
+          ctx = ssl.create_default_context()
+          ctx.check_hostname = False
+          ctx.verify_mode = ssl.CERT_NONE
+
+          codedeploy = boto3.client('codedeploy')
+
+          def send_status(deploymentId, hooksExecutionId, status):
+              response = codedeploy.put_lifecycle_event_hook_execution_status(
+                              deploymentId=deploymentId,
+                              lifecycleEventHookExecutionId=hooksExecutionId,
+                              status=status
+                          )
+
+          def validate(res):
+              '''Return False to trigger the canary
+
+              Currently this simply checks whether the EXPECTED string is present.
+              However, you could modify this to perform any number of arbitrary
+              checks on the contents of SITE.
+              '''
+              return EXPECTED in res
+
+          def lambda_handler(event, context):
+              print(json.dumps(event))
+              status = 'Succeeded'
+              deploymentId = event['DeploymentId']
+              hooksExecutionId = event['LifecycleEventHookExecutionId']
+              #print('Checking {} at {}...'.format(SITE, event['time']))
+              try:
+                  req = Request(SITE, headers={'User-Agent': 'AWS Lambda'})
+                  if not validate(str(urlopen(req, context=ctx).read())):
+                      status = 'Failed'
+              except:
+                  print('Check failed!')
+                  status = 'Failed'
+              else:
+                  print('Check passed!')
+                  return str(datetime.now())
+              finally:
+                  send_status(deploymentId, hooksExecutionId, status)
+                  print('Check complete at {}'.format(str(datetime.now())))
+
+      Runtime: python3.8
+      Role: !GetAtt rAfterInstallHookLambdaRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables: 
+          site_url: !Ref pAppURL
+          page_expected_string: !Ref pAppTestingString
+
+Outputs:
+  oAfterInstallHookLambdaArn:
+    Description: AfterInstallHookLambda ARN
+    Value: !GetAtt rAfterInstallHookLambda.Arn
