@@ -15,6 +15,6 @@
         "pCertificateArn":"<ACM_CERT_ARN>",
         "pTerminationTimeInMinutes":"10",
         "pDeploymentConfig":"CodeDeployDefault.ECSCanary10Percent5Minutes",
-        "pAppTestingExpectedString":"Hello World"
+        "pAppTestingExpectedString":"Welcome to the Hello World App"
     }
 }
