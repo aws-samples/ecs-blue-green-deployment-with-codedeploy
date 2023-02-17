@@ -22,9 +22,20 @@ Resources:
     Type: AWS::S3::Bucket
     Properties: 
       BucketName: !Sub "${pApplicationName}-codepipeline-bucket-${AWS::Region}"
-
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
   rCloudFormationServiceRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F38
+            reason: "IAM Pass Role policy has * as the role is passed to several AWS service"
+          - id: F3
+            reason: "CloudFormation role needs broader permissions to deploy resources"
     Properties:
       RoleName: !Sub ${pApplicationName}-AWSCloudFormationServiceRole
       AssumeRolePolicyDocument:
@@ -111,10 +122,6 @@ Resources:
           Resource: "*"
           Effect: Allow
         - Action:
-          - codestar-connections:UseConnection
-          Resource: "*"
-          Effect: Allow
-        - Action:
           - elasticbeanstalk:*
           - ec2:*
           - elasticloadbalancing:*
@@ -134,17 +141,6 @@ Resources:
           Resource: "*"
           Effect: Allow
         - Action:
-          - opsworks:CreateDeployment
-          - opsworks:DescribeApps
-          - opsworks:DescribeCommands
-          - opsworks:DescribeDeployments
-          - opsworks:DescribeInstances
-          - opsworks:DescribeStacks
-          - opsworks:UpdateApp
-          - opsworks:UpdateStack
-          Resource: "*"
-          Effect: Allow
-        - Action:
           - cloudformation:CreateStack
           - cloudformation:DeleteStack
           - cloudformation:DescribeStacks
@@ -157,21 +153,12 @@ Resources:
           - cloudformation:ValidateTemplate
           Resource: "*"
           Effect: Allow
-        - Action:
+        - Effect: Allow
+          Action:
           - codebuild:BatchGetBuilds
           - codebuild:StartBuild
           - codebuild:BatchGetBuildBatches
           - codebuild:StartBuildBatch
-          Resource: "*"
-          Effect: Allow
-        - Effect: Allow
-          Action:
-          - devicefarm:ListProjects
-          - devicefarm:ListDevicePools
-          - devicefarm:GetRun
-          - devicefarm:GetUpload
-          - devicefarm:CreateUpload
-          - devicefarm:ScheduleRun
           Resource: "*"
         - Effect: Allow
           Action:
@@ -195,12 +182,6 @@ Resources:
           - states:DescribeStateMachine
           - states:StartExecution
           Resource: "*"
-        - Effect: Allow
-          Action:
-          - appconfig:StartDeployment
-          - appconfig:StopDeployment
-          - appconfig:GetDeployment
-          Resource: "*"
                     
   rCodePipelineServiceRole:
     Type: AWS::IAM::Role
@@ -217,6 +198,11 @@ Resources:
 
   rCodeBuildServiceRolePolicy:
     Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F5
+            reason: "CodePipeline roles needs broader permissions to deploy resources"
     Properties:
       ManagedPolicyName: !Sub 'AWSCodeBuildServiceRolePolicy-${pApplicationName}'
       PolicyDocument:
@@ -307,7 +293,7 @@ Resources:
                 - gem install cfn-nag  # https://github.com/stelligent/cfn_nag
             pre_build:
               commands:
-                - cfn_nag_scan --ignore-fatal --input-path iac/app/
+                - cfn_nag_scan --ignore-fatal --input-path iac/
             build:
               commands:
                 - aws cloudformation validate-template --template-body file://iac/app/nested-stack.yaml
@@ -347,54 +333,6 @@ Resources:
       Source:
         Type: CODEPIPELINE
         BuildSpec: iac/pipeline/codebuild/buildspec-container.yaml
-
-  rCreateDeploymentFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
-          Action: sts:AssumeRole
-      Policies:
-        - 
-         PolicyName: "CodeDeploy-access"
-         PolicyDocument:
-           Version: "2012-10-17"
-           Statement:
-              - 
-                Effect: "Allow"
-                Action: "codedeploy:*"
-                Resource: "*"
-
-  rCreateDeploymentFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Function to trigger blue/green deployment using Code Deploy 
-      Handler: index.lambda_handler 
-      MemorySize: 128
-      Role: !GetAtt rCreateDeploymentFunctionRole.Arn
-      Runtime: python3.8
-      Timeout: 60
-      Environment:
-        Variables:
-          key1: value1 # A map of key-value pairs that the Lambda function can access
-      Code:
-        ZipFile: |
-          import json
-          import cfnresponse
-          import boto3
-
-          def lambda_handler(event, context):
-            print(json.dumps(event))
-            responseData = {}
-            cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
-
-      Tags:
-        - Key: keyname
-          Value: value
   
   rCodeDeployConfigBuildProject:
     Type: AWS::CodeBuild::Project  
