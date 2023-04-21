@@ -22,11 +22,18 @@ Resources:
     Type: AWS::S3::Bucket
     Properties: 
       BucketName: !Sub "${pApplicationName}-codepipeline-bucket-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: 
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
       PublicAccessBlockConfiguration:
           BlockPublicAcls: true
           BlockPublicPolicy: true
           IgnorePublicAcls: true
           RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: 'Enabled'
+
   rCloudFormationServiceRole:
     Type: AWS::IAM::Role
     Metadata:
@@ -87,6 +94,13 @@ Resources:
 
   rCodePipelineServiceRolePolicy:
     Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F40
+            reason: "IAM Pass Role policy has * as the role is passed to several AWS service"
+          - id: F5
+            reason: "CodePipeline Service role needs broader permissions to deploy resources"
     Properties:
       ManagedPolicyName: !Sub 'AWSCodePipelineServiceRolePolicy-${pApplicationName}-Pipeline'
       PolicyDocument:
@@ -309,6 +323,8 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub ${pApplicationName}-repo
+      ImageScanningConfiguration:
+        ScanOnPush: true
   
   rApplicationContainerBuild:
     Type: AWS::CodeBuild::Project
