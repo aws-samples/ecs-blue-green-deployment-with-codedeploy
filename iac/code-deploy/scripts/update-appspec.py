@@ -34,6 +34,7 @@ with open(inputAppSpecFile, 'r') as file:
   contents['Hooks'][0]['AfterAllowTestTraffic'] = hooksLambdaArn
   contents['Resources'][0]['TargetService']['Properties']['LoadBalancerInfo']['ContainerName'] = response['taskDefinition']['containerDefinitions'][0]['name']
   contents['Resources'][0]['TargetService']['Properties']['LoadBalancerInfo']['ContainerPort'] = response['taskDefinition']['containerDefinitions'][0]['portMappings'][0]['containerPort']
+  contents['Resources'][0]['TargetService']['Properties']['TaskDefinition'] = taskArn
 
   print('Updated appspec.yaml contents')
   print(contents)  
