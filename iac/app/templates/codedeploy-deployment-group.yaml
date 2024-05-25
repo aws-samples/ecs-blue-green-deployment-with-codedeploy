@@ -85,7 +85,7 @@ Resources:
       Handler: "CodeDeployDeploymentGroupLambdaBG.lambda_handler"
       MemorySize: 128
       Role: !GetAtt rCustomResourceLambdaRole.Arn
-      Runtime: "python3.7"
+      Runtime: "python3.12"
       Timeout: 20
 
   rCustomResourceLambdaRole:

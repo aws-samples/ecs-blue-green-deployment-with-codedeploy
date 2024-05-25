@@ -4,12 +4,12 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: This template creates a CodePipeline to build, test and perform blue/green deployment of application release
 
-Parameters: 
+Parameters:
   pApplicationName:
     Description: Application Name
     Type: String
 
-#Conditions: 
+#Conditions:
 
 Resources:
   rCodeCommitRepo:
@@ -20,19 +20,19 @@ Resources:
 
   rCodePipelineArtifactBucket:
     Type: AWS::S3::Bucket
-    Properties: 
+    Properties:
       BucketName: !Sub "${pApplicationName}-codepipeline-bucket-${AWS::Region}"
       BucketEncryption:
-        ServerSideEncryptionConfiguration: 
+        ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
-              SSEAlgorithm: 'AES256'
+              SSEAlgorithm: "AES256"
       PublicAccessBlockConfiguration:
-          BlockPublicAcls: true
-          BlockPublicPolicy: true
-          IgnorePublicAcls: true
-          RestrictPublicBuckets: true
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
       VersioningConfiguration:
-        Status: 'Enabled'
+        Status: "Enabled"
 
   rCloudFormationServiceRole:
     Type: AWS::IAM::Role
@@ -46,16 +46,16 @@ Resources:
     Properties:
       RoleName: !Sub ${pApplicationName}-AWSCloudFormationServiceRole
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Principal:
-            Service: cloudformation.amazonaws.com
-          Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
       Policies:
         - PolicyName: EC2AndIAMPermissions
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Action:
                   - ec2:Describe*
@@ -102,111 +102,111 @@ Resources:
           - id: F5
             reason: "CodePipeline Service role needs broader permissions to deploy resources"
     Properties:
-      ManagedPolicyName: !Sub 'AWSCodePipelineServiceRolePolicy-${pApplicationName}-Pipeline'
+      ManagedPolicyName: !Sub "AWSCodePipelineServiceRolePolicy-${pApplicationName}-Pipeline"
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Action:
-          - iam:PassRole
-          Resource: "*"
-          Effect: Allow
-          Condition:
-            StringEqualsIfExists:
-              iam:PassedToService:
-              - cloudformation.amazonaws.com
-              - elasticbeanstalk.amazonaws.com
-              - ec2.amazonaws.com
-              - ecs-tasks.amazonaws.com
-        - Action:
-          - codecommit:CancelUploadArchive
-          - codecommit:GetBranch
-          - codecommit:GetCommit
-          - codecommit:GetRepository
-          - codecommit:GetUploadArchiveStatus
-          - codecommit:UploadArchive
-          Resource: "*"
-          Effect: Allow
-        - Action:
-          - codedeploy:CreateDeployment
-          - codedeploy:GetApplication
-          - codedeploy:GetApplicationRevision
-          - codedeploy:GetDeployment
-          - codedeploy:GetDeploymentConfig
-          - codedeploy:RegisterApplicationRevision
-          Resource: "*"
-          Effect: Allow
-        - Action:
-          - elasticbeanstalk:*
-          - ec2:*
-          - elasticloadbalancing:*
-          - autoscaling:*
-          - cloudwatch:*
-          - s3:*
-          - sns:*
-          - cloudformation:*
-          - rds:*
-          - sqs:*
-          - ecs:*
-          Resource: "*"
-          Effect: Allow
-        - Action:
-          - lambda:InvokeFunction
-          - lambda:ListFunctions
-          Resource: "*"
-          Effect: Allow
-        - Action:
-          - cloudformation:CreateStack
-          - cloudformation:DeleteStack
-          - cloudformation:DescribeStacks
-          - cloudformation:UpdateStack
-          - cloudformation:CreateChangeSet
-          - cloudformation:DeleteChangeSet
-          - cloudformation:DescribeChangeSet
-          - cloudformation:ExecuteChangeSet
-          - cloudformation:SetStackPolicy
-          - cloudformation:ValidateTemplate
-          Resource: "*"
-          Effect: Allow
-        - Effect: Allow
-          Action:
-          - codebuild:BatchGetBuilds
-          - codebuild:StartBuild
-          - codebuild:BatchGetBuildBatches
-          - codebuild:StartBuildBatch
-          Resource: "*"
-        - Effect: Allow
-          Action:
-          - servicecatalog:ListProvisioningArtifacts
-          - servicecatalog:CreateProvisioningArtifact
-          - servicecatalog:DescribeProvisioningArtifact
-          - servicecatalog:DeleteProvisioningArtifact
-          - servicecatalog:UpdateProduct
-          Resource: "*"
-        - Effect: Allow
-          Action:
-          - cloudformation:ValidateTemplate
-          Resource: "*"
-        - Effect: Allow
-          Action:
-          - ecr:DescribeImages
-          Resource: "*"
-        - Effect: Allow
-          Action:
-          - states:DescribeExecution
-          - states:DescribeStateMachine
-          - states:StartExecution
-          Resource: "*"
-                    
+          - Action:
+              - iam:PassRole
+            Resource: "*"
+            Effect: Allow
+            Condition:
+              StringEqualsIfExists:
+                iam:PassedToService:
+                  - cloudformation.amazonaws.com
+                  - elasticbeanstalk.amazonaws.com
+                  - ec2.amazonaws.com
+                  - ecs-tasks.amazonaws.com
+          - Action:
+              - codecommit:CancelUploadArchive
+              - codecommit:GetBranch
+              - codecommit:GetCommit
+              - codecommit:GetRepository
+              - codecommit:GetUploadArchiveStatus
+              - codecommit:UploadArchive
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - codedeploy:CreateDeployment
+              - codedeploy:GetApplication
+              - codedeploy:GetApplicationRevision
+              - codedeploy:GetDeployment
+              - codedeploy:GetDeploymentConfig
+              - codedeploy:RegisterApplicationRevision
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - elasticbeanstalk:*
+              - ec2:*
+              - elasticloadbalancing:*
+              - autoscaling:*
+              - cloudwatch:*
+              - s3:*
+              - sns:*
+              - cloudformation:*
+              - rds:*
+              - sqs:*
+              - ecs:*
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - lambda:InvokeFunction
+              - lambda:ListFunctions
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - cloudformation:CreateStack
+              - cloudformation:DeleteStack
+              - cloudformation:DescribeStacks
+              - cloudformation:UpdateStack
+              - cloudformation:CreateChangeSet
+              - cloudformation:DeleteChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:SetStackPolicy
+              - cloudformation:ValidateTemplate
+            Resource: "*"
+            Effect: Allow
+          - Effect: Allow
+            Action:
+              - codebuild:BatchGetBuilds
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuildBatches
+              - codebuild:StartBuildBatch
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - servicecatalog:ListProvisioningArtifacts
+              - servicecatalog:CreateProvisioningArtifact
+              - servicecatalog:DescribeProvisioningArtifact
+              - servicecatalog:DeleteProvisioningArtifact
+              - servicecatalog:UpdateProduct
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - cloudformation:ValidateTemplate
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - ecr:DescribeImages
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - states:DescribeExecution
+              - states:DescribeStateMachine
+              - states:StartExecution
+            Resource: "*"
+
   rCodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Principal:
-            Service: codepipeline.amazonaws.com
-          Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Ref rCodePipelineServiceRolePolicy
 
@@ -218,37 +218,37 @@ Resources:
           - id: F5
             reason: "CodePipeline roles needs broader permissions to deploy resources"
     Properties:
-      ManagedPolicyName: !Sub 'AWSCodeBuildServiceRolePolicy-${pApplicationName}'
+      ManagedPolicyName: !Sub "AWSCodeBuildServiceRolePolicy-${pApplicationName}"
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Action:
-          - cloudwatch:*
-          - s3:*
-          - ecs:*
-          - logs:*
-          - ecr:*
-          - cloudformation:ValidateTemplate
-          Resource: "*"
-          Effect: Allow
-        - Action:
-          - codebuild:BatchGetBuilds
-          - codebuild:StartBuild
-          - codebuild:BatchGetBuildBatches
-          - codebuild:StartBuildBatch
-          Resource: "*"
-          Effect: Allow
+          - Action:
+              - cloudwatch:*
+              - s3:*
+              - ecs:*
+              - logs:*
+              - ecr:*
+              - cloudformation:ValidateTemplate
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - codebuild:BatchGetBuilds
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuildBatches
+              - codebuild:StartBuildBatch
+            Resource: "*"
+            Effect: Allow
 
   rCodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Principal:
-            Service: codebuild.amazonaws.com
-          Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Ref rCodeBuildServiceRolePolicy
 
@@ -259,7 +259,7 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub ${pApplicationName}-appbuild
-      Description: !Sub 'Project for ${pApplicationName} source build'
+      Description: !Sub "Project for ${pApplicationName} source build"
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Artifacts:
         Type: CODEPIPELINE
@@ -278,10 +278,10 @@ Resources:
       TimeoutInMinutes: 60
 
   rCFNValidatePackageCodeBuildProject:
-    Type: AWS::CodeBuild::Project  
+    Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${pApplicationName}-CFNValidateAndPackage'
-      Description: !Sub 'Project to validate and package the CloudFormation infrastructure as code for ${pApplicationName}'
+      Name: !Sub "${pApplicationName}-CFNValidateAndPackage"
+      Description: !Sub "Project to validate and package the CloudFormation infrastructure as code for ${pApplicationName}"
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Artifacts:
         Type: CODEPIPELINE
@@ -290,10 +290,10 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:3.0
         EnvironmentVariables:
-        - Name: AWS_DEFAULT_REGION
-          Value: us-east-1
-        - Name: TEMPLATE_BUCKET
-          Value: !Ref rCodePipelineArtifactBucket
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref "AWS::REGION"
+          - Name: TEMPLATE_BUCKET
+            Value: !Ref rCodePipelineArtifactBucket
       TimeoutInMinutes: 60
       Source:
         Type: CODEPIPELINE
@@ -325,7 +325,7 @@ Resources:
       RepositoryName: !Sub ${pApplicationName}-repo
       ImageScanningConfiguration:
         ScanOnPush: true
-  
+
   rApplicationContainerBuild:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -340,21 +340,21 @@ Resources:
         Image: aws/codebuild/standard:5.0-21.01.08
         PrivilegedMode: true
         EnvironmentVariables:
-        - Name: AWS_DEFAULT_REGION
-          Value: us-east-1
-        - Name: S3_BUCKET
-          Value: !Ref rCodePipelineArtifactBucket
-        - Name: REPOSITORY_URI
-          Value: !GetAtt rECRRepository.RepositoryUri
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref "AWS::REGION"
+          - Name: S3_BUCKET
+            Value: !Ref rCodePipelineArtifactBucket
+          - Name: REPOSITORY_URI
+            Value: !GetAtt rECRRepository.RepositoryUri
       Source:
         Type: CODEPIPELINE
         BuildSpec: iac/pipeline/codebuild/buildspec-container.yaml
-  
+
   rCodeDeployConfigBuildProject:
-    Type: AWS::CodeBuild::Project  
+    Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${pApplicationName}-CodeDeployConfigBuild'
-      Description: !Sub 'Project to build appspec and taskdef needed for CodeDeploy deployment'
+      Name: !Sub "${pApplicationName}-CodeDeployConfigBuild"
+      Description: !Sub "Project to build appspec and taskdef needed for CodeDeploy deployment"
       ServiceRole: !GetAtt rCodeBuildServiceRole.Arn
       Artifacts:
         Type: CODEPIPELINE
@@ -363,10 +363,10 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:3.0
         EnvironmentVariables:
-        - Name: TASKDEF_ARN
-          Value: ""
-        - Name: HOOKS_LAMBDA_ARN
-          Value: ""
+          - Name: TASKDEF_ARN
+            Value: ""
+          - Name: HOOKS_LAMBDA_ARN
+            Value: ""
       TimeoutInMinutes: 60
       Source:
         Type: CODEPIPELINE
@@ -385,8 +385,7 @@ Resources:
                 # Create appspec.yml for CodeDeploy deployment
                 - python iac/code-deploy/scripts/update-appspec.py --taskArn ${TASKDEF_ARN} --hooksLambdaArn ${HOOKS_LAMBDA_ARN} --inputAppSpecFile 'iac/code-deploy/appspec.yml' --outputAppSpecFile '/tmp/appspec.yml'
                 # Create taskdefinition for CodeDeploy deployment
-                - aws ecs describe-task-definition --task-definition ${TASKDEF_ARN} --region us-east-1 >> taskdef.json
-                - jq --arg IMAGE1_NAME "<IMAGE1_NAME>" '.taskDefinition | .containerDefinitions[0].image = $IMAGE1_NAME' taskdef.json > tmp.json && mv tmp.json /tmp/taskdef.json
+                - aws ecs describe-task-definition --task-definition ${TASKDEF_ARN} --region ${AWS_REGION} --query taskDefinition >> taskdef.json
           artifacts:
             files:
               - /tmp/appspec.yml
@@ -396,12 +395,12 @@ Resources:
   rAppPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: !Sub '${pApplicationName}-pipeline'
+      Name: !Sub "${pApplicationName}-pipeline"
       RoleArn: !GetAtt rCodePipelineServiceRole.Arn
       ArtifactStore:
         Type: S3
         Location: !Ref rCodePipelineArtifactBucket
-      Stages: 
+      Stages:
         - Name: Source
           Actions:
             - Name: ApplicationSource
@@ -409,7 +408,7 @@ Resources:
                 Category: Source
                 Owner: AWS
                 Provider: CodeCommit
-                Version: '1'
+                Version: "1"
               Configuration:
                 BranchName: main
                 RepositoryName: !GetAtt rCodeCommitRepo.Name
@@ -424,7 +423,7 @@ Resources:
                 Category: Build
                 Owner: AWS
                 Provider: CodeBuild
-                Version: '1'
+                Version: "1"
               Configuration:
                 ProjectName: !Sub ${pApplicationName}-appbuild
               InputArtifacts:
@@ -438,7 +437,7 @@ Resources:
                 Category: Build
                 Owner: AWS
                 Provider: CodeBuild
-                Version: '1'
+                Version: "1"
               Configuration:
                 ProjectName: !Sub ${pApplicationName}-appimage
               InputArtifacts:
@@ -453,7 +452,7 @@ Resources:
                 Category: Build
                 Owner: AWS
                 Provider: CodeBuild
-                Version: '1'
+                Version: "1"
               Configuration:
                 ProjectName: !Sub ${pApplicationName}-CFNValidateAndPackage
               InputArtifacts:
@@ -469,7 +468,7 @@ Resources:
                 Category: Deploy
                 Owner: AWS
                 Provider: CloudFormation
-                Version: '1'
+                Version: "1"
               Configuration:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM
@@ -492,7 +491,7 @@ Resources:
                 Category: Build
                 Owner: AWS
                 Provider: CodeBuild
-                Version: '1'
+                Version: "1"
               Configuration:
                 ProjectName: !Sub "${pApplicationName}-CodeDeployConfigBuild"
                 EnvironmentVariables: '[{"name": "TASKDEF_ARN", "value": "#{DeployInfraVariables.oTaskDefinitionArn}", "type": "PLAINTEXT"},{"name": "HOOKS_LAMBDA_ARN", "value": "#{DeployInfraVariables.oAfterInstallHookLambdaArn}", "type": "PLAINTEXT"}]'
@@ -508,18 +507,14 @@ Resources:
                 Category: Deploy
                 Owner: AWS
                 Provider: CodeDeployToECS
-                Version: '1'
+                Version: "1"
               Configuration:
                 ApplicationName: "#{DeployInfraVariables.oCodeDeployAppName}"
                 DeploymentGroupName: "#{DeployInfraVariables.oDeploymentGroupName}"
-                Image1ArtifactName: "ApplicationImage"
-                Image1ContainerName: "IMAGE1_NAME"
                 TaskDefinitionTemplateArtifact: "CodeDeployConfig"
-                TaskDefinitionTemplatePath: "taskdef.json"
                 AppSpecTemplateArtifact: "CodeDeployConfig"
                 AppSpecTemplatePath: "appspec.yml"
               InputArtifacts:
-                - Name: ApplicationImage
                 - Name: CodeDeployConfig
               OutputArtifacts: []
               RunOrder: 1
@@ -531,24 +526,32 @@ Resources:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-          -
-            Effect: Allow
+          - Effect: Allow
             Principal:
               Service:
                 - events.amazonaws.com
             Action: sts:AssumeRole
       Path: /
       Policies:
-        -
-          PolicyName: cwe-pipeline-execution
+        - PolicyName: cwe-pipeline-execution
           PolicyDocument:
             Version: 2012-10-17
             Statement:
-              -
-                Effect: Allow
+              - Effect: Allow
                 Action: codepipeline:StartPipelineExecution
-                Resource: !Join [ '', [ 'arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref rAppPipeline ] ] 
-  
+                Resource:
+                  !Join [
+                    "",
+                    [
+                      "arn:aws:codepipeline:",
+                      !Ref "AWS::Region",
+                      ":",
+                      !Ref "AWS::AccountId",
+                      ":",
+                      !Ref rAppPipeline,
+                    ],
+                  ]
+
   rCodeCommitCloudWatchEventRule:
     Type: AWS::Events::Rule
     Properties:
@@ -556,9 +559,19 @@ Resources:
         source:
           - aws.codecommit
         detail-type:
-          - 'CodeCommit Repository State Change'
+          - "CodeCommit Repository State Change"
         resources:
-          - !Join [ '', [ 'arn:aws:codecommit:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !GetAtt rCodeCommitRepo.Name ] ]
+          - !Join [
+              "",
+              [
+                "arn:aws:codecommit:",
+                !Ref "AWS::Region",
+                ":",
+                !Ref "AWS::AccountId",
+                ":",
+                !GetAtt rCodeCommitRepo.Name,
+              ],
+            ]
         detail:
           event:
             - referenceCreated
@@ -568,9 +581,18 @@ Resources:
           referenceName:
             - main
       Targets:
-        -
-          Arn: 
-            !Join [ '', [ 'arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref rAppPipeline ] ]
+        - Arn:
+            !Join [
+              "",
+              [
+                "arn:aws:codepipeline:",
+                !Ref "AWS::Region",
+                ":",
+                !Ref "AWS::AccountId",
+                ":",
+                !Ref rAppPipeline,
+              ],
+            ]
           RoleArn: !GetAtt rCloudWatchEventRole.Arn
           Id: codepipeline-AppPipeline
 Outputs:

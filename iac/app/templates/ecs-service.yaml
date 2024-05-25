@@ -80,7 +80,7 @@ Resources:
       Handler: TaskDefinitionLambda.lambda_handler
       MemorySize: 128
       Role: !GetAtt rECSTaskDefinitionFunctionRole.Arn
-      Runtime: python3.7
+      Runtime: python3.12
       Timeout: 30
 
   rECSTaskDefinitionResource:

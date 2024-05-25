@@ -101,7 +101,7 @@ Resources:
                   send_status(deploymentId, hooksExecutionId, status)
                   print('Check complete at {}'.format(str(datetime.now())))
 
-      Runtime: python3.8
+      Runtime: python3.12
       Role: !GetAtt rAfterInstallHookLambdaRole.Arn
       Timeout: 30
       MemorySize: 512
